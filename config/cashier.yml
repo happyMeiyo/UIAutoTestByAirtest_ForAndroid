@@ -1,0 +1,18 @@
+#-------------------------------------------------
+#   File Name：     storeManager
+#   Description :
+#   Author :        Meiyo
+#   date：          2019/10/9 10:33
+#-------------------------------------------------
+#   Change Activity:
+#                   2019/10/9:
+#------------------------------------------------- 
+ShopManagerInfo:
+    merchantcode: 101993
+    usercode: qing
+    password: a123456
+
+CashierInfo:
+    merchantcode: 101993
+    usercode: yu
+    password: a123456
