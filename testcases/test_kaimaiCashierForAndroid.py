@@ -14,11 +14,11 @@
 """
 __author__ = 'Meiyo'
 
-import sys
+# import sys
+#
+# # sys.path.append("E:/xiaohexian_project/UItest_for_cashier")
 
-# sys.path.append("E:/xiaohexian_project/UItest_for_cashier")
-
-from airtest.core.api import *
+from airtest.core.api import connect_device, start_app,stop_app
 from poco.drivers.android.uiautomation import AndroidUiautomationPoco
 from api.userLogin import user_login, user_logout
 from api.goods import goods_add_shopping_cart
@@ -26,33 +26,45 @@ from api.vip import search_vip
 from api.keyboardcode import input_keyboard_code
 from util import load_yaml_file
 import unittest
+import os
+
+
+def setUpModule():
+    connect_device("Android://127.0.0.1:5037/DA08196340368")
+    start_app('com.caibaopay.cashier')
+
+
+def tearDownModule():
+    stop_app('com.caibaopay.cashier')
 
 
 class CashierForAndroidCase(unittest.TestCase):
-
     @classmethod
     def setUpClass(cls):
-        connect_device("Android://127.0.0.1:5037/DA08196340368")
-
-        start_app('com.caibaopay.cashier')
-
         cls.poco = AndroidUiautomationPoco(use_airtest_input=True, screenshot_each_action=False)
 
-    def setUp(self):
         content = load_yaml_file(os.getcwd() + '/config/cashier.yml')
         user_info = content.get('ShopManagerInfo')
-        merchant_code = user_info['merchantcode']
-        user_code = user_info['usercode']
-        password = user_info['password']
+        cls.merchant_code = user_info['merchantcode']
+        cls.user_code = user_info['usercode']
+        cls.password = user_info['password']
 
-        user_login(self.poco, merchant_code, user_code, password)
+    def setUp(self):
+        # content = load_yaml_file(os.getcwd() + '/config/cashier.yml')
+        # user_info = content.get('ShopManagerInfo')
+        # merchant_code = user_info['merchantcode']
+        # user_code = user_info['usercode']
+        # password = user_info['password']
 
+        user_login(self.poco, self.merchant_code, self.user_code, self.password)
         self.poco("com.caibaopay.cashier:id/ll_logout").wait_for_appearance(2)
-        assert_equal(self.poco("com.caibaopay.cashier:id/tv_shop_info").exists(), True, "登录成功")
+        self.assertTrue(self.poco("com.caibaopay.cashier:id/tv_shop_info").exists(), "登录成功")
 
     def tearDown(self):
         user_logout(self.poco)
 
+
+class TestShoppingCart(CashierForAndroidCase):
     def test_pendingAndGetOrder(self):
         # %% 挂单
         # 加购商品
@@ -66,12 +78,12 @@ class CashierForAndroidCase(unittest.TestCase):
         self.poco(text="草莓味水果捞").click()
         self.poco("com.caibaopay.cashier:id/rl_take_order").click()
 
-        assert_equal(self.poco("com.caibaopay.cashier:id/tv_take_order").get_text(), "取单", "挂单成功.")
+        self.assertEqual(self.poco("com.caibaopay.cashier:id/tv_take_order").get_text(), "取单", "挂单成功.")
         # %%
 
         # %% 取单列表
         self.poco("com.caibaopay.cashier:id/rl_take_order").click()
-        assert_equal(self.poco("com.caibaopay.cashier:id/ftv_amount").get_text(), "24.00", "显示挂单列表成功.")
+        self.assertEqual(self.poco("com.caibaopay.cashier:id/ftv_amount").get_text(), "24.00", "显示挂单列表成功.")
         # %%
 
         # %% 取单
@@ -80,14 +92,14 @@ class CashierForAndroidCase(unittest.TestCase):
             "android.widget.LinearLayout").offspring("com.caibaopay.cashier:id/fl_right").offspring(
             "com.caibaopay.cashier:id/rlv_order_list").child("com.caibaopay.cashier:id/ll_root").child(
             "android.widget.LinearLayout").click()
-        assert_equal(self.poco("com.caibaopay.cashier:id/ltv_total_discount_price").get_text(), "24.00", "取单成功.")
+        self.assertEqual(self.poco("com.caibaopay.cashier:id/ltv_total_discount_price").get_text(), "24.00", "取单成功.")
         # %%
 
         # %% 清除购物车
         self.poco("com.caibaopay.cashier:id/ll_delete_all").click()
         self.poco("com.caibaopay.cashier:id/tv_confirm").wait_for_appearance(1)
         self.poco("com.caibaopay.cashier:id/tv_confirm").click()
-        assert_equal(self.poco("com.caibaopay.cashier:id/tv_cart_info").get_text(), "购物车为空", "清空购物车成功")
+        self.assertEqual(self.poco("com.caibaopay.cashier:id/tv_cart_info").get_text(), "购物车为空", "清空购物车成功")
         # %%
 
     def test_temporaryGoods(self):
@@ -106,15 +118,17 @@ class CashierForAndroidCase(unittest.TestCase):
 
         self.poco("com.caibaopay.cashier:id/tv_number").click()
         input_keyboard_code(2)
-        assert_equal(self.poco("com.caibaopay.cashier:id/tv_total_price").get_text(), "10.00", "输入零售价和数量成功")
+        self.assertEqual(self.poco("com.caibaopay.cashier:id/tv_total_price").get_text(), "10.00", "输入零售价和数量成功")
         # %%
 
         # %% 加入购物车
         self.poco("com.caibaopay.cashier:id/tv_confirm").click()
         self.poco("com.caibaopay.cashier:id/ll_go_cash").wait_for_appearance(2)
-        assert_equal(self.poco("com.caibaopay.cashier:id/ltv_total_discount_price").get_text(), "10.00", "临时商品加购成功")
+        self.assertEqual(self.poco("com.caibaopay.cashier:id/ltv_total_discount_price").get_text(), "10.00", "临时商品加购成功")
         # %%
 
+
+class TestPay(CashierForAndroidCase):
     def test_payByVipCard(self):
         # %% 商品加购
         goods_add_shopping_cart(self.poco)
@@ -163,7 +177,7 @@ class CashierForAndroidCase(unittest.TestCase):
 
         self.poco("com.caibaopay.cashier:id/ll_cash_back").wait_for_appearance(2)
 
-        assert_not_equal(self.poco("com.caibaopay.cashier:id/atv_cash_back").get_text(), "0.00", "找零金额不为0.")
+        self.assertNotEqual(self.poco("com.caibaopay.cashier:id/atv_cash_back").get_text(), "0.00", "找零金额不为0.")
 
         input_keyboard_code("yesforpay")
 
@@ -202,24 +216,26 @@ class CashierForAndroidCase(unittest.TestCase):
         input_keyboard_code("yesforpay")
 
         self.poco("com.caibaopay.cashier:id/ll_error").wait_for_appearance(2)
-        assert_equal(self.poco("com.caibaopay.cashier:id/tv_error_msg").get_text(),
+        self.assertEqual(self.poco("com.caibaopay.cashier:id/tv_error_msg").get_text(),
                      "无效的付款条码，请扫描消费者手机付款条码重试！",  "扫码支付失败")
 
         self.poco("com.caibaopay.cashier:id/tv_account").click()
         self.poco("com.caibaopay.cashier:id/rl_order_list").wait_for_appearance(2)
-        assert_equal(self.poco("com.caibaopay.cashier:id/rl_order_list")
+        self.assertEqual(self.poco("com.caibaopay.cashier:id/rl_order_list")
                      .child("com.caibaopay.cashier:id/ll_order_container")[0]
                      .offspring("com.caibaopay.cashier:id/tv_order_state").get_text(), "待收款", "订单状态是未收款")
 
         # %%
 
+
+class TestVip(CashierForAndroidCase):
     def test_chargeByCash(self):
         # %% 搜索会员
         self.poco(text="会员").click()
         self.poco(text="手机号码 / 会员码").click()
         search_vip(self.poco)
         self.poco(text="哈哈").click()
-        assert_equal(self.poco("com.caibaopay.cashier:id/tv_vip_name").get_text(), "哈哈", "查询会员成功.")
+        self.assertEqual(self.poco("com.caibaopay.cashier:id/tv_vip_name").get_text(), "哈哈", "查询会员成功.")
         # %%
 
         # %% 充值
@@ -232,7 +248,7 @@ class CashierForAndroidCase(unittest.TestCase):
         self.poco("com.caibaopay.cashier:id/tv_confirm_pay").click()
 
         self.poco("com.caibaopay.cashier:id/custom").wait_for_appearance(15)
-        assert_equal(self.poco("com.caibaopay.cashier:id/tv_recharge_amount").get_text(), "10.00", "充值成功")
+        self.assertEqual(self.poco("com.caibaopay.cashier:id/tv_recharge_amount").get_text(), "10.00", "充值成功")
         self.poco("com.caibaopay.cashier:id/tv_confirm").click()
         # %%
 
@@ -242,16 +258,15 @@ class CashierForAndroidCase(unittest.TestCase):
         self.poco(text="手机号码 / 会员码").click()
         search_vip(self.poco)
         self.poco(text="文心").click()
-        assert_equal(self.poco("com.caibaopay.cashier:id/tv_vip_name").get_text(), "文心", "查询会员成功.")
+        self.assertEqual(self.poco("com.caibaopay.cashier:id/tv_vip_name").get_text(), "文心", "查询会员成功.")
         # %%
 
         self.poco("com.caibaopay.cashier:id/rl_coupon").click()
-        assert_equal(self.poco("com.caibaopay.cashier:id/fl_right")
-                     .offspring("com.caibaopay.cashier:id/rl_coupon").exists(),
-                     True, "查看券列表成功")
+        self.assertTrue(self.poco("com.caibaopay.cashier:id/fl_right")
+                        .offspring("com.caibaopay.cashier:id/rl_coupon").exists(), "查看券列表成功")
 
         self.poco("com.caibaopay.cashier:id/rl_point").click()
-        assert_equal(self.poco("com.caibaopay.cashier:id/rl_point_list").exists(), True, "查看积分列表成功")
+        self.assertTrue(self.poco("com.caibaopay.cashier:id/rl_point_list").exists(), "查看积分列表成功")
 
     def test_bandAndUnbandCard(self):
         # %% 搜索会员
@@ -259,7 +274,7 @@ class CashierForAndroidCase(unittest.TestCase):
         self.poco(text="手机号码 / 会员码").click()
         search_vip(self.poco)
         self.poco(text="文心").click()
-        assert_equal(self.poco("com.caibaopay.cashier:id/tv_vip_name").get_text(), "文心", "查询会员成功.")
+        self.assertEqual(self.poco("com.caibaopay.cashier:id/tv_vip_name").get_text(), "文心", "查询会员成功.")
         # %%
 
         self.poco("com.caibaopay.cashier:id/rl_physical_card").click()
@@ -277,6 +292,6 @@ class CashierForAndroidCase(unittest.TestCase):
         input_keyboard_code(0)
         input_keyboard_code("yes")
 
-        assert_equal(self.poco("com.caibaopay.cashier:id/aft_physical_card").get_text(), "1234567890", "绑卡成功.")
+        self.assertEqual(self.poco("com.caibaopay.cashier:id/aft_physical_card").get_text(), "1234567890", "绑卡成功.")
         self.poco("com.caibaopay.cashier:id/tv_unbind").click()
-        assert_equal(self.poco("com.caibaopay.cashier:id/aft_physical_card").get_text(), "尚未绑定实体卡", "解绑成功.")
+        self.assertEqual(self.poco("com.caibaopay.cashier:id/aft_physical_card").get_text(), "尚未绑定实体卡", "解绑成功.")
